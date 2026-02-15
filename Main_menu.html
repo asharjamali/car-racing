@@ -14,7 +14,7 @@
             margin: 0;
             overflow: hidden;
             font-family: 'Racing Sans One', cursive;
-            background: url("tump.jpg") center/cover no-repeat fixed;
+            background: url("/page/tump.jpg") center/cover no-repeat fixed;
         }
 
         canvas {
@@ -115,7 +115,7 @@
 </head>
 <body>
 
-    <audio src="car racing 1 song.mp3" autoplay loop ></audio>
+    <audio src="/page/car racing 1 song.mp3" autoplay loop ></audio>
 
     <!-- Flying stars particle effect (speed/starfield style) -->
     <canvas id="canvas"></canvas>
@@ -133,10 +133,10 @@
 
     <script>
         // Button navigation
-        document.getElementById("single_player").onclick = () => location.href = "Single_player.html";
-        document.getElementById("dual_player").onclick = () => location.href = "multi_player.html";
-        document.getElementById("tutorial").onclick = () => location.href = "tutorial.html";
-        document.getElementById("about").onclick = () => location.href = "about.html";
+        document.getElementById("single_player").onclick = () => location.href = "/page/Single_player.html";
+        document.getElementById("dual_player").onclick = () => location.href = "/page/multi_player.html";
+        document.getElementById("tutorial").onclick = () => location.href = "/page/tutorial.html";
+        document.getElementById("about").onclick = () => location.href = "/page/about.html";
 
         // Starfield particle effect (flying stars with depth & glow)
         const canvas = document.getElementById('canvas');
