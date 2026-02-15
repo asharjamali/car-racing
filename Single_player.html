@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Single Player - Racing Car Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Racing+Sans+One&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body, html {
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background: url("tomp.jpg") center/cover no-repeat fixed;
+            font-family: 'Racing Sans One', cursive;
+            position: relative;
+        }
+
+        /* Dark overlay for better visibility */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.35);
+            z-index: 1;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            z-index: 3;
+        }
+
+        /* Animated road markings */
+        .moving-line {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            animation: linesDown 1s linear infinite;
+        }
+
+        @keyframes linesDown {
+            0% { background-position-y: 0; }
+            100% { background-position-y: 320px; }
+        }
+
+        /* Side borders (white dashed shoulders) */
+        .side-border {
+            width: 50px;
+            background: repeating-linear-gradient(to bottom, #0c0101 0px, #0b0909 100px, transparent 100px, transparent 200px);
+            background-size: 100% 400px;
+            opacity: 0.9;
+            box-shadow: 0 0 40px #ffffff;
+        }
+
+        .side-border.left { left: 18%; }
+        .side-border.right { right: 18%; }
+
+        /* Lane dividers (faint) */
+        .lane-divider {
+            width: 12px;
+            background: repeating-linear-gradient(to bottom, rgba(10, 0, 0, 0.4) 0px, rgba(114, 108, 108, 0.4) 60px, transparent 60px, transparent 120px);
+            background-size: 100% 240px;
+            opacity: 0.6;
+        }
+
+        .lane-divider.left { left: 36%; }
+        .lane-divider.right { left: 64%; }
+
+        /* Center dashed line (bright yellow) */
+        .center-line {
+            left: 50%;
+            width: 20px;
+            margin-left: -10px;
+            background: repeating-linear-gradient(to bottom, #0f0f01 0px, #15150a 80px, transparent 80px, transparent 160px);
+            background-size: 100% 320px;
+            box-shadow: 0 0 40px #ffff00;
+        }
+
+        /* Score board */
+        #score_div {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: #ff0040;
+            font-size: 48px;
+            padding: 12px 40px;
+            border-radius: 30px;
+            box-shadow: 0 0 40px #ff0040;
+            z-index: 20;
+            text-shadow: 0 0 20px #ff0040;
+            transition: all 0.3s;
+        }
+
+        #score_div.pulse {
+            animation: scorePulse 0.6s ease;
+        }
+
+        @keyframes scorePulse {
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.2); color: #ffff00; box-shadow: 0 0 80px #ffff00; }
+            100% { transform: translateX(-50%) scale(1); }
+        }
+
+        /* Cars - normal balanced size */
+        .car {
+            position: absolute;
+            width: 70px;
+            height: 140px;
+            border-radius: 18px;
+            box-shadow: 0 0 50px currentColor;
+            z-index: 10;
+        }
+
+        #car {
+            bottom: 60px;
+            background: #ffdf5a;
+            box-shadow: 0 0 70px #ffff00, 0 0 110px #ffff00;
+            animation: playerGlow 2s infinite alternate;
+        }
+
+        @keyframes playerGlow {
+            from { box-shadow: 0 0 70px #ffff00, 0 0 110px #ffff00; }
+            to { box-shadow: 0 0 90px #ffff00, 0 0 150px #ffff00; }
+        }
+
+        .enemy-car {
+            background: #ff0000;
+        }
+
+        #car_2 { background: #0066ff; }
+        #car_3 { background: #00ff00; }
+
+        /* Car details */
+        .f_glass, .b_glass {
+            position: absolute;
+            width: 60%;
+            height: 32%;
+            left: 20%;
+            background: rgba(100,200,255,0.6);
+            border-radius: 10px;
+        }
+
+        .f_glass { top: 18%; }
+        .b_glass { bottom: 18%; }
+
+        .light {
+            position: absolute;
+            width: 24%;
+            height: 18%;
+            box-shadow: 0 0 35px;
+        }
+
+        .f_light_l, .f_light_r { top: -10%; background: #ffffff; }
+        .f_light_l { left: 10%; }
+        .f_light_r { right: 10%; }
+
+        .b_light_l, .b_light_r { bottom: -10%; background: #ff0000; }
+        .b_light_l { left: 10%; }
+        .b_light_r { right: 10%; }
+
+        .rev_f_light_l, .rev_f_light_r { bottom: -10%; background: #ffffff; }
+        .rev_b_light_l, .rev_b_light_r { top: -10%; background: #ff0000; }
+
+        .tyre {
+            position: absolute;
+            width: 28%;
+            height: 30%;
+            background: #111;
+            border-radius: 50%;
+            box-shadow: inset 0 0 20px #000;
+            animation: spin 0.35s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .f_tyre_l { top: 14%; left: -14%; }
+        .f_tyre_r { top: 14%; right: -14%; }
+        .b_tyre_l { bottom: 14%; left: -14%; }
+        .b_tyre_r { bottom: 14%; right: -14%; }
+
+        /* Countdown */
+        #countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 200px;
+            color: #ff0040;
+            text-shadow: 0 0 80px #ff0040;
+            z-index: 30;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        #countdown.show {
+            animation: countdownAnim 1s ease;
+        }
+
+        @keyframes countdownAnim {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* Game Over */
+        #restart_div {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            color: #ff0040;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 40;
+        }
+
+        #restart_div h1 {
+            font-size: 120px;
+            text-shadow: 0 0 80px #ff0040;
+            animation: pulse 2s infinite alternate;
+        }
+
+        #restart_div h2 {
+            font-size: 60px;
+            margin: 20px 0;
+            text-shadow: 0 0 40px #ff0040;
+        }
+
+        #restart {
+            padding: 25px 80px;
+            font-size: 50px;
+            background: #ff0040;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 0 60px #ff0040;
+            transition: all 0.3s;
+        }
+
+        #restart:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 100px #ff0040;
+        }
+
+        @keyframes pulse {
+            from { text-shadow: 0 0 60px #ff0040; }
+            to { text-shadow: 0 0 100px #ff0040, 0 0 140px #ff0040; }
+        }
+
+        /* Return button */
+        .return-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 15px 35px;
+            background: #ff0040;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 0 40px #ff0040;
+            transition: all 0.3s;
+            z-index: 20;
+        }
+
+        .return-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 80px #ff0040;
+        }
+    </style>
+</head>
+<body>
+
+     <audio src="car racing 1 song.mp3" autoplay loop ></audio>
+
+    <!-- Starfield effect -->
+    <canvas id="canvas"></canvas>
+
+    <div id="container">
+        <!-- Road markings -->
+        <div class="side-border left moving-line"></div>
+        <div class="side-border right moving-line"></div>
+        <div class="lane-divider left moving-line"></div>
+        <div class="lane-divider right moving-line"></div>
+        <div class="center-line moving-line"></div>
+
+        <!-- Player car -->
+        <div id="car" class="car">
+            <div class="f_glass"></div>
+            <div class="b_glass"></div>
+            <div class="f_light_l light"></div>
+            <div class="f_light_r light"></div>
+            <div class="b_light_l light"></div>
+            <div class="b_light_r light"></div>
+            <div class="f_tyre_l tyre"></div>
+            <div class="f_tyre_r tyre"></div>
+            <div class="b_tyre_l tyre"></div>
+            <div class="b_tyre_r tyre"></div>
+        </div>
+
+        <!-- Enemy cars -->
+        <div id="car_1" class="enemy-car car">
+            <div class="f_glass"></div>
+            <div class="b_glass"></div>
+            <div class="rev_f_light_l light"></div>
+            <div class="rev_f_light_r light"></div>
+            <div class="rev_b_light_l light"></div>
+            <div class="rev_b_light_r light"></div>
+            <div class="f_tyre_l tyre"></div>
+            <div class="f_tyre_r tyre"></div>
+            <div class="b_tyre_l tyre"></div>
+            <div class="b_tyre_r tyre"></div>
+        </div>
+        <div id="car_2" class="enemy-car car">
+            <div class="f_glass"></div>
+            <div class="b_glass"></div>
+            <div class="rev_f_light_l light"></div>
+            <div class="rev_f_light_r light"></div>
+            <div class="rev_b_light_l light"></div>
+            <div class="rev_b_light_r light"></div>
+            <div class="f_tyre_l tyre"></div>
+            <div class="f_tyre_r tyre"></div>
+            <div class="b_tyre_l tyre"></div>
+            <div class="b_tyre_r tyre"></div>
+        </div>
+        <div id="car_3" class="enemy-car car">
+            <div class="f_glass"></div>
+            <div class="b_glass"></div>
+            <div class="rev_f_light_l light"></div>
+            <div class="rev_f_light_r light"></div>
+            <div class="rev_b_light_l light"></div>
+            <div class="rev_b_light_r light"></div>
+            <div class="f_tyre_l tyre"></div>
+            <div class="f_tyre_r tyre"></div>
+            <div class="b_tyre_l tyre"></div>
+            <div class="b_tyre_r tyre"></div>
+        </div>
+
+        <!-- Countdown -->
+        <div id="countdown"></div>
+
+        <!-- Game Over -->
+        <div id="restart_div">
+            <h1>Game Over</h1>
+            <h2>Your Score: <span id="final_score">0</span></h2>
+            <button id="restart">Restart</button>
+        </div>
+    </div>
+
+    <div id="score_div">Score: <span id="score">0</span></div>
+    <button class="return-btn" onclick="location.href='Main_menu.html'">← Back</button>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(function () {
+            var anim_id;
+            var container = $('#container'),
+                car = $('#car'),
+                car_1 = $('#car_1'),
+                car_2 = $('#car_2'),
+                car_3 = $('#car_3'),
+                restart_div = $('#restart_div'),
+                restart_btn = $('#restart'),
+                score_elem = $('#score'),
+                final_score = $('#final_score'),
+                countdown = $('#countdown'),
+                score_div = $('#score_div');
+
+            var container_width = parseInt(container.width());
+            var container_height = parseInt(container.height());
+            var car_width = parseInt(car.width());
+            var car_height = parseInt(car.height());
+
+            var game_over = true;
+            var score_counter = 1;
+            var speed = 7;
+            var line_speed_duration = 0.8;
+
+            var move_right = false;
+            var move_left = false;
+
+            // 3 lanes positions
+            var lanes = [
+                container_width * 0.35 - car_width / 2,
+                container_width * 0.5 - car_width / 2,
+                container_width * 0.65 - car_width / 2
+            ];
+
+            // Start player in middle lane
+            car.css('left', lanes[1]);
+
+            // Update line animation speed
+            function updateLineSpeed() {
+                line_speed_duration = 5 / speed;
+                $('.moving-line').css('animation-duration', line_speed_duration + 's');
+            }
+            updateLineSpeed();
+
+            // Countdown 3-2-1-GO
+            function startCountdown() {
+                var count = 3;
+                countdown.addClass('show').text(count);
+                var interval = setInterval(function () {
+                    count--;
+                    if (count > 0) {
+                        countdown.text(count);
+                    } else if (count === 0) {
+                        countdown.text('GO!');
+                    } else {
+                        countdown.removeClass('show').hide();
+                        clearInterval(interval);
+                        game_over = false;
+                        anim_id = requestAnimationFrame(repeat);
+                    }
+                }, 1000);
+            }
+
+            // Controls
+            $(document).on('keydown', function (e) {
+                if (game_over === false) {
+                    var key = e.keyCode;
+                    if (key === 37 && move_left === false) move_left = requestAnimationFrame(left);
+                    if (key === 39 && move_right === false) move_right = requestAnimationFrame(right);
+                }
+            });
+
+            $(document).on('keyup', function (e) {
+                if (game_over === false) {
+                    var key = e.keyCode;
+                    if (key === 37) { cancelAnimationFrame(move_left); move_left = false; }
+                    if (key === 39) { cancelAnimationFrame(move_right); move_right = false; }
+                }
+            });
+
+            function left() {
+                if (game_over === false && parseInt(car.css('left')) > container_width * 0.22) {
+                    car.css('left', parseInt(car.css('left')) - 12);
+                    move_left = requestAnimationFrame(left);
+                }
+            }
+
+            function right() {
+                if (game_over === false && parseInt(car.css('left')) < container_width * 0.78 - car_width) {
+                    car.css('left', parseInt(car.css('left')) + 12);
+                    move_right = requestAnimationFrame(right);
+                }
+            }
+
+            // Game loop
+            function repeat() {
+                if (game_over === false) {
+                    if (collision(car, car_1) || collision(car, car_2) || collision(car, car_3)) {
+                        stop_the_game();
+                        return;
+                    }
+
+                    score_counter++;
+                    if (score_counter % 20 === 0) {
+                        score_elem.text(parseInt(score_elem.text()) + 1);
+                        score_div.addClass('pulse');
+                        setTimeout(() => score_div.removeClass('pulse'), 600);
+                    }
+
+                    if (score_counter % 600 === 0) {
+                        speed += 2;
+                        updateLineSpeed();
+                    }
+
+                    car_down(car_1);
+                    car_down(car_2);
+                    car_down(car_3);
+
+                    anim_id = requestAnimationFrame(repeat);
+                }
+            }
+
+            function car_down(car_elem) {
+                var current_top = parseInt(car_elem.css('top'));
+                if (current_top > container_height) {
+                    current_top = -250;
+                    var random_lane = Math.floor(Math.random() * 3);
+                    car_elem.css('left', lanes[random_lane]);
+                }
+                car_elem.css('top', current_top + speed);
+            }
+
+            function stop_the_game() {
+                game_over = true;
+                cancelAnimationFrame(anim_id);
+                cancelAnimationFrame(move_left);
+                cancelAnimationFrame(move_right);
+                final_score.text(score_elem.text());
+                restart_div.fadeIn();
+                restart_btn.focus();
+            }
+
+            restart_btn.click(function () { location.reload(); });
+            $(document).on('keydown', function (e) {
+                if (e.keyCode === 13 && game_over === true && restart_div.is(':visible')) {
+                    location.reload();
+                }
+            });
+
+            function collision($div1, $div2) {
+                var x1 = $div1.offset().left;
+                var y1 = $div1.offset().top;
+                var h1 = $div1.outerHeight(true);
+                var w1 = $div1.outerWidth(true);
+                var b1 = y1 + h1;
+                var r1 = x1 + w1;
+                var x2 = $div2.offset().left;
+                var y2 = $div2.offset().top;
+                var h2 = $div2.outerHeight(true);
+                var w2 = $div2.outerWidth(true);
+                var b2 = y2 + h2;
+                var r2 = x2 + w2;
+
+                if (b1 < y2 || y1 > b2 || r1 < x2 || x1 > r2) return false;
+                return true;
+            }
+
+            startCountdown();
+        });
+
+        // Starfield effect
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let w = canvas.width = window.innerWidth;
+        let h = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        });
+
+        const NUM_STARS = 600;
+        const SPEED = 0.05;
+        const stars = [];
+
+        for (let i = 0; i < NUM_STARS; i++) {
+            stars.push({
+                x: Math.random() * 2 - 1,
+                y: Math.random() * 2 - 1,
+                z: Math.random()
+            });
+        }
+
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ffffff';
+
+        function animate() {
+            ctx.clearRect(0, 0, w, h);
+
+            stars.forEach(s => {
+                s.z += SPEED;
+                if (s.z > 1) s.z -= 1;
+
+                const scale = 1 / (1 - s.z);
+                const px = s.x * scale * (w / 2) + w / 2;
+                const py = s.y * scale * (h / 2) + h / 2;
+                const size = scale * 5;
+
+                ctx.globalAlpha = 1 - s.z * 0.6;
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(px, py, size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            ctx.globalAlpha = 1;
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

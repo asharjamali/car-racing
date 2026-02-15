@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dual Player - Racing Car Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Racing+Sans+One&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body, html {
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background: url("temp.jpg") center/cover no-repeat fixed;
+            font-family: 'Racing Sans One', cursive;
+            position: relative;
+        }
+
+        /* Dark overlay for better visibility */
+ |       body::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.35);
+            z-index: 1;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .game-wrapper {
+            display: flex;
+            height: 100vh;
+            position: relative;
+            z-index: 3;
+        }
+
+        .player {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .player-label {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 50px;
+            color: #ff0040;
+            text-shadow: 0 0 40px #ff0040;
+            z-index: 20;
+        }
+
+        .player.left .player-label { color: #ffff00; text-shadow: 0 0 40px #ffff00; }
+        .player.right .player-label { color: #00aaff; text-shadow: 0 0 40px #00aaff; }
+
+        .score-div {
+            position: absolute;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: #ff0040;
+            font-size: 48px;
+            padding: 12px 40px;
+            border-radius: 30px;
+            box_shadow: 0 0 40px #ff0040;
+            z-index: 20;
+            text-shadow: 0 0 20px #ff0040;
+            transition: all 0.3s;
+        }
+
+        .player.left .score-div { color: #ffff00; box-shadow: 0 0 40px #ffff00; text-shadow: 0 0 20px #ffff00; }
+        .player.right .score-div { color: #00aaff; box-shadow: 0 0 40px #00aaff; text-shadow: 0 0 20px #00aaff; }
+
+        .score-div.pulse {
+            animation: scorePulse 0.6s ease;
+        }
+
+        @keyframes scorePulse {
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.2); }
+            100% { transform: translateX(-50%) scale(1); }
+        }
+
+        .road-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Animated road markings */
+        .moving-line {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            animation: linesDown 1s linear infinite;
+        }
+
+        @keyframes linesDown {
+            0% { background-position-y: 0; }
+            100% { background-position-y: 320px; }
+        }
+
+        .side-border {
+            width: 50px;
+            background: repeating-linear-gradient(to bottom, #070000 0px, #2b2525 100px, transparent 100px, transparent 200px);
+            background-size: 100% 400px;
+            opacity: 0.9;
+            box-shadow: 0 0 40px #ffffff;
+        }
+
+        .side-border.left { left: 18%; }
+        .side-border.right { right: 18%; }
+
+        .lane-divider {
+            width: 12px;
+            background: repeating-linear-gradient(to bottom, rgba(18, 16, 16, 0.4) 0px, rgba(255,255,255,0.4) 60px, transparent 60px, transparent 120px);
+            background-size: 100% 240px;
+            opacity: 0.6;
+        }
+
+        .lane-divider.left { left: 36%; }
+        .lane-divider.right { left: 64%; }
+
+        .center-line {
+            left: 50%;
+            width: 20px;
+            margin-left: -10px;
+            background: repeating-linear-gradient(to bottom, #0e0e0c 0px, #090901 80px, transparent 80px, transparent 160px);
+            background-size: 100% 320px;
+            box-shadow: 0 0 40px #ffff00;
+        }
+
+        /* Cars */
+        .car {
+            position: absolute;
+            width: 70px;
+            height: 140px;
+            border-radius: 18px;
+            box-shadow: 0 0 50px currentColor;
+            z-index: 10;
+        }
+
+        .player-car {
+            bottom: 60px;
+            animation: playerGlow 2s infinite alternate;
+        }
+
+        #car_ply_1 { background: #ffdf5a; box-shadow: 0 0 70px #ffff00, 0 0 110px #ffff00; }
+        #car_ply_2 { background: #00aaff; box-shadow: 0 0 70px #00aaff, 0 0 110px #00aaff; }
+
+        @keyframes playerGlow {
+            from { box-shadow: 0 0 70px currentColor, 0 0 110px currentColor; }
+            to { box-shadow: 0 0 90px currentColor, 0 0 150px currentColor; }
+        }
+
+        .enemy-car { 
+            background: #ff0000;
+        }
+
+        .enemy-car:nth-of-type(2) { background: #0066ff; }
+        .enemy-car:nth-of-type(3) { background: #00ff00; }
+
+        /* Car details */
+        .f_glass, .b_glass {
+            position: absolute;
+            width: 60%;
+            height: 32%;
+            left: 20%;
+            background: rgba(100,200,255,0.6);
+            border-radius: 10px;
+        }
+
+        .f_glass { top: 18%; }
+        .b_glass { bottom: 18%; }
+
+        .light {
+            position: absolute;
+            width: 24%;
+            height: 18%;
+            box-shadow: 0 0 35px;
+        }
+
+        .f_light_l, .f_light_r { top: -10%; background: #ffffff; }
+        .f_light_l { left: 10%; }
+        .f_light_r { right: 10%; }
+
+        .b_light_l, .b_light_r { bottom: -10%; background: #ff0000; }
+        .b_light_l { left: 10%; }
+        .b_light_r { right: 10%; }
+
+        .rev_f_light_l, .rev_f_light_r { bottom: -10%; background: #ffffff; }
+        .rev_b_light_l, .rev_b_light_r { top: -10%; background: #ff0000; }
+
+        .tyre {
+            position: absolute;
+            width: 28%;
+            height: 30%;
+            background: #111;
+            border-radius: 50%;
+            box-shadow: inset 0 0 20px #000;
+            animation: spin 0.35s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .f_tyre_l { top: 14%; left: -14%; }
+        .f_tyre_r { top: 14%; right: -14%; }
+        .b_tyre_l { bottom: 14%; left: -14%; }
+        .b_tyre_r { bottom: 14%; right: -14%; }
+
+        /* Countdown */
+        .countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 180px;
+            color: #ff0040;
+            text-shadow: 0 0 80px #ff0040;
+            z-index: 30;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .countdown.show {
+           _animation: countdownAnim 1s ease;
+        }
+
+        @keyframes countdownAnim {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* Game Over */
+        .restart-div {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            color: #ff0040;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 40;
+        }
+
+        .restart-div h1 {
+            font-size: 100px;
+            text-shadow: 0  0 80px #ff0040;
+        }
+
+        .restart-div button {
+            padding: 25px 80px;
+            font-size: 50px;
+            background: #ff0040;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 0 60px #ff0040;
+            margin-top: 30px;
+        }
+
+        .restart-div button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 100px #ff0040;
+        }
+
+        /* Return button */
+        .return-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 15px 35px;
+            background: #ff0040;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 0 40px #ff0040;
+            transition: all 0.3s;
+            z-index: 50;
+        }
+
+        .return-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 80px #ff0040;
+        }
+
+        /* Glowing middle divider */
+        .game-wrapper::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent, #ff0040, transparent);
+            box-shadow: 0 0 60px #ff0040;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <audio src="car racing 1 song.mp3" autoplay loop ></audio>
+
+    <!-- Starfield -->
+    <canvas id="canvas"></canvas>
+
+    <div class="game-wrapper">
+        <!-- Player 1 (Left - WASD) -->
+        <div class="player left">
+            <div class="player-label">Player 1 (WASD)</div>
+            <div class="score-div" id="score_div_ply_1">Score: <span id="score_ply_1">0</span></div>
+            <div class="road-container" id="container_ply_1">
+                <!-- Road markings -->
+                <div class="side-border left moving-line"></div>
+                <div class="side-border right moving-line"></div>
+                <div class="lane-divider left moving-line"></div>
+                <div class="lane-divider right moving-line"></div>
+                <div class="center-line moving-line"></div>
+
+                <!-- Player car -->
+                <div id="car_ply_1" class="car player-car">
+                    <div class="f_glass"></div>
+                    <div class="b_glass"></div>
+                    <div class="f_light_l light"></div>
+                    <div class="f_light_r light"></div>
+                    <div class="b_light_l light"></div>
+                    <div class="b_light_r light"></div>
+                    <div class="f_tyre_l tyre"></div>
+                    <div class="f_tyre_r tyre"></div>
+                    <div class="b_tyre_l tyre"></div>
+                    <div class="b_tyre_r tyre"></div>
+                </div>
+
+                <!-- Enemy cars -->
+                <div id="car_1_ply_1" class="enemy-car car">
+                    <div class="f_glass"></div>
+                    <div class="b_glass"></div>
+                    <div class="rev_f_light_l light"></div>
+                    <div class="rev_f_light_r light"></div>
+                    <div class="rev_b_light_l light"></div>
+                    <div class="rev_b_light_r light"></div>
+                    <div class="f_tyre_l tyre"></div>
+                    <div class="f_tyre_r tyre"></div>
+                    <div class="b_tyre_l tyre"></div>
+                    <div class="b_tyre_r tyre"></div>
+                </div>
+                <div id="car_2_ply_1" class="enemy-car car">
+                    <div class="f_glass"></div>
+                    <div class="b_glass"></div>
+                    <div class="rev_f_light_l light"></div>
+                    <div class="rev_f_light_r light"></div>
+                    <div class="rev_b_light_l light"></div>
+                    <div class="rev_b_light_r light"></div>
+                    <div class="f_tyre_l tyre"></div>
+                    <div class="f_tyre_r tyre"></div>
+                    <div class="b_tyre_l tyre"></div>
+                    <div class="b_tyre_r tyre"></div>
+                </div>
+                <div id="car_3_ply_1" class="enemy-car car">
+                    <div class="f_glass"></div>
+                    <div class="b_glass"></div>
+                    <div class="rev_f_light_l light"></div>
+                    <div class="rev_f_light_r light"></div>
+                    <div class="rev_b_light_l light"></div>
+                    <div class="rev_b_light_r light"></div>
+                    <div class="f_tyre_l tyre"></div>
+                    <div class="f_tyre_r tyre"></div>
+                    <div class="b_tyre_l tyre"></div>
+                    <div class="b_tyre_r tyre"></div>
+                </div>
+
+                <div id="countdown_ply_1" class="countdown"></div>
+
+                <div id="restart_div_ply_1" class="restart-div">
+                    <h1>Player 1 Crashed!</h1>
+                    <button class="restart-btn">Restart Game</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player 2 (Right - Arrows) -->
+        <div class="player right">
+            <div class="player-label">Player 2 (Arrows)</div>
+            <div class="score-div" id="score_div_ply_2">Score: <span id="score_ply_2">0</span></div>
+            <div class="road-container" id="container_ply_2">
+                <!-- Same road markings -->
+                <div class="side-border left moving-line"></div>
+                <div class="side-border right moving-line"></div>
+                <div class="lane-divider left moving-line"></div>
+                <div class="lane-divider right moving-line"></div>
+                <div class="center-line moving-line"></div>
+
+                <!-- Player car -->
+                <div id="car_ply_2" class="car player-car">
+                    <div class="f_glass"></div>
+                    <div class="b_glass"></div>
+                    <div class="f_light_l light"></div>
+                    <div class="f_light_r light"></div>
+                    <div class="b_light_l light"></div>
+                    <div class="b_light_r light"></div>
+                    <div class="f_tyre_l tyre"></div>
+                    <div class="f_tyre_r tyre"></div>
+                    <div class="b_tyre_l tyre"></div>
+                    <div class="b_tyre_r tyre"></div>
+                </div>
+
+                <!-- Enemy cars -->
+                <div id="car_1_ply_2" class="enemy-car car">
+                    <div class="f_glass"></div>
+                    <div class="b_glass"></div>
+                    <div class="rev_f_light_l light"></div>
+                    <div class="rev_f_light_r light"></div>
+                    <div class="rev_b_light_l light"></div>
+                    <div class="rev_b_light_r light"></div>
+                    <div class="f_tyre_l tyre"></div>
+                    <div class="f_tyre_r tyre"></div>
+                    <div class="b_tyre_l tyre"></div>
+                    <div class="b_tyre_r tyre"></div>
+                </div>
+                <div id="car_2_ply_2" class="enemy-car car">
+                    <div class="f_glass"></div>
+                    <div class="b_glass"></div>
+                    <div class="rev_f_light_l light"></div>
+                    <div class="rev_f_light_r light"></div>
+                    <div class="rev_b_light_l light"></div>
+                    <div class="rev_b_light_r light"></div>
+                    <div class="f_tyre_l tyre"></div>
+                    <div class="f_tyre_r tyre"></div>
+                    <div class="b_tyre_l tyre"></div>
+                    <div class="b_tyre_r tyre"></div>
+                </div>
+                <div id="car_3_ply_2" class="enemy-car car">
+                    <div class="f_glass"></div>
+                    <div class="b_glass"></div>
+                    <div class="rev_f_light_l light"></div>
+                    <div class="rev_f_light_r light"></div>
+                    <div class="rev_b_light_l light"></div>
+                    <div class="rev_b_light_r light"></div>
+                    <div class="f_tyre_l tyre"></div>
+                    <div class="f_tyre_r tyre"></div>
+                    <div class="b_tyre_l tyre"></div>
+                    <div class="b_tyre_r tyre"></div>
+                </div>
+
+                <div id="countdown_ply_2" class="countdown"></div>
+
+                <div id="restart_div_ply_2" class="restart-div">
+                    <h1>Player 2 Crashed!</h1>
+                    <button class="restart-btn">Restart Game</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="return-btn" onclick="location.href='Main_menu.html'">← Back</button>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Shared starfield effect
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let w = canvas.width = window.innerWidth;
+        let h = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        });
+
+        const NUM_STARS = 600;
+        const SPEED = 0.05;
+        const stars = [];
+
+        for (let i = 0; i < NUM_STARS; i++) {
+            stars.push({
+                x: Math.random() * 2 - 1,
+                y: Math.random() * 2 - 1,
+                z: Math.random()
+            });
+        }
+
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ffffff';
+
+        function animate() {
+            ctx.clearRect(0, 0, w, h);
+
+            stars.forEach(s => {
+                s.z += SPEED;
+                if (s.z > 1) s.z -= 1;
+
+                const scale = 1 / (1 - s.z);
+                const px = s.x * scale * (w / 2) + w / 2;
+                const py = s.y * scale * (h / 2) + h / 2;
+                const size = scale * 5;
+
+                ctx.globalAlpha = 1 - s.z * 0.6;
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(px, py, size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            ctx.globalAlpha = 1;
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        // Player 1 Logic (WASD)
+        $(function () {
+            const container = $('#container_ply_1');
+            const car = $('#car_ply_1');
+            const enemies = [$('#car_1_ply_1'), $('#car_2_ply_1'), $('#car_3_ply_1')];
+            const restart_div = $('#restart_div_ply_1');
+            const score_elem = $('#score_ply_1');
+            const score_div = $('#score_div_ply_1');
+            const countdown = $('#countdown_ply_1');
+
+            const container_width = container.width();
+            const car_width = car.width();
+
+            let game_over = true;
+            let score_counter = 1;
+            let speed = 7;
+            let line_speed_duration = 0.8;
+
+            const lanes = [
+                container_width * 0.35 - car_width / 2,
+                container_width * 0.5 - car_width / 2,
+                container_width * 0.65 - car_width / 2
+            ];
+
+            car.css('left', lanes[1]);
+
+            function updateLineSpeed() {
+                line_speed_duration = 5 / speed;
+                container.find('.moving-line').css('animation-duration', line_speed_duration + 's');
+            }
+            updateLineSpeed();
+
+            function startCountdown() {
+                let count = 3;
+                countdown.addClass('show').text(count);
+                const interval = setInterval(() => {
+                    count--;
+                    if (count > 0) countdown.text(count);
+                    else if (count === 0) countdown.text('GO!');
+                    else {
+                        countdown.removeClass('show').hide();
+                        clearInterval(interval);
+                        game_over = false;
+                        anim_id = requestAnimationFrame(repeat);
+                    }
+                }, 1000);
+            }
+
+            let anim_id, move_left = false, move_right = false;
+
+            $(document).on('keydown', function (e) {
+                if (!game_over) {
+                    if (e.keyCode === 65 && !move_left) move_left = requestAnimationFrame(left); // A
+                    if (e.keyCode === 68 && !move_right) move_right = requestAnimationFrame(right); // D
+                }
+            });
+
+            $(document).on('keyup', function (e) {
+                if (!game_over) {
+                    if (e.keyCode === 65) { cancelAnimationFrame(move_left); move_left = false; }
+                    if (e.keyCode === 68) { cancelAnimationFrame(move_right); move_right = false; }
+                }
+            });
+
+            function left() {
+                if (!game_over && parseInt(car.css('left')) > container_width * 0.22) {
+                    car.css('left', parseInt(car.css('left')) - 12);
+                    move_left = requestAnimationFrame(left);
+                }
+            }
+
+            function right() {
+                if (!game_over && parseInt(car.css('left')) < container_width * 0.78 - car_width) {
+                    car.css('left', parseInt(car.css('left')) + 12);
+                    move_right = requestAnimationFrame(right);
+                }
+            }
+
+            function repeat() {
+                if (!game_over) {
+                    if (enemies.some(enemy => collision(car, enemy))) {
+                        stop_the_game();
+                        return;
+                    }
+
+                    score_counter++;
+                    if (score_counter % 20 === 0) {
+                        score_elem.text(parseInt(score_elem.text()) + 1);
+                        score_div.addClass('pulse');
+                        setTimeout(() => score_div.removeClass('pulse'), 600);
+                    }
+
+                    if (score_counter % 600 === 0) {
+                        speed += 2;
+                        updateLineSpeed();
+                    }
+
+                    enemies.forEach(enemy => car_down(enemy));
+
+                    anim_id = requestAnimationFrame(repeat);
+                }
+            }
+
+            function car_down(enemy) {
+                let top = parseInt(enemy.css('top'));
+                if (top > container.height()) {
+                    top = -250;
+                    enemy.css('left', lanes[Math.floor(Math.random() * 3)]);
+                }
+                enemy.css('top', top + speed);
+            }
+
+            function stop_the_game() {
+                game_over = true;
+                cancelAnimationFrame(anim_id);
+                cancelAnimationFrame(move_left);
+                cancelAnimationFrame(move_right);
+                restart_div.fadeIn();
+            }
+
+            function collision($div1, $div2) {
+                const x1 = $div1.offset().left, y1 = $div1.offset().top;
+                const h1 = $div1.outerHeight(true), w1 = $div1.outerWidth(true);
+                const b1 = y1 + h1, r1 = x1 + w1;
+                const x2 = $div2.offset().left, y2 = $div2.offset().top;
+                const h2 = $div2.outerHeight(true), w2 = $div2.outerWidth(true);
+                const b2 = y2 + h2, r2 = x2 + w2;
+                if (b1 < y2 || y1 > b2 || r1 < x2 || x1 > r2) return false;
+                return true;
+            }
+
+            restart_div.find('.restart-btn').click(() => location.reload());
+
+            startCountdown();
+        });
+
+        // Player 2 Logic (Arrow Keys) - identical except controls
+        $(function () {
+            const container = $('#container_ply_2');
+            const car = $('#car_ply_2');
+            const enemies = [$('#car_1_ply_2'), $('#car_2_ply_2'), $('#car_3_ply_2')];
+            const restart_div = $('#restart_div_ply_2');
+            const score_elem = $('#score_ply_2');
+            const score_div = $('#score_div_ply_2');
+            const countdown = $('#countdown_ply_2');
+
+            const container_width = container.width();
+            const car_width = car.width();
+
+            let game_over = true;
+            let score_counter = 1;
+            let speed = 7;
+            let line_speed_duration = 0.8;
+
+            const lanes = [
+                container_width * 0.35 - car_width / 2,
+                container_width * 0.5 - car_width / 2,
+                container_width * 0.65 - car_width / 2
+            ];
+
+            car.css('left', lanes[1]);
+
+            function updateLineSpeed() {
+                line_speed_duration = 5 / speed;
+                container.find('.moving-line').css('animation-duration', line_speed_duration + 's');
+            }
+            updateLineSpeed();
+
+            function startCountdown() {
+                let count = 3;
+                countdown.addClass('show').text(count);
+                const interval = setInterval(() => {
+                    count--;
+                    if (count > 0) countdown.text(count);
+                    else if (count === 0) countdown.text('GO!');
+                    else {
+                        countdown.removeClass('show').hide();
+                        clearInterval(interval);
+                        game_over = false;
+                        anim_id = requestAnimationFrame(repeat);
+                    }
+                }, 1000);
+            }
+
+            let anim_id, move_left = false, move_right = false;
+
+            $(document).on('keydown', function (e) {
+                if (!game_over) {
+                    if (e.keyCode === 37 && !move_left) move_left = requestAnimationFrame(left); // Left arrow
+                    if (e.keyCode === 39 && !move_right) move_right = requestAnimationFrame(right); // Right arrow
+                }
+            });
+
+            $(document).on('keyup', function (e) {
+                if (!game_over) {
+                    if (e.keyCode === 37) { cancelAnimationFrame(move_left); move_left = false; }
+                    if (e.keyCode === 39) { cancelAnimationFrame(move_right); move_right = false; }
+                }
+            });
+
+            function left() {
+                if (!game_over && parseInt(car.css('left')) > container_width * 0.22) {
+                    car.css('left', parseInt(car.css('left')) - 12);
+                    move_left = requestAnimationFrame(left);
+                }
+            }
+
+            function right() {
+                if (!game_over && parseInt(car.css('left')) < container_width * 0.78 - car_width) {
+                    car.css('left', parseInt(car.css('left')) + 12);
+                    move_right = requestAnimationFrame(right);
+                }
+            }
+
+            function repeat() {
+                if (!game_over) {
+                    if (enemies.some(enemy => collision(car, enemy))) {
+                        stop_the_game();
+                        return;
+                    }
+
+                    score_counter++;
+                    if (score_counter % 20 === 0) {
+                        score_elem.text(parseInt(score_elem.text()) + 1);
+                        score_div.addClass('pulse');
+                        setTimeout(() => score_div.removeClass('pulse'), 600);
+                    }
+
+                    if (score_counter % 600 === 0) {
+                        speed += 2;
+                        updateLineSpeed();
+                    }
+
+                    enemies.forEach(enemy => car_down(enemy));
+
+                    anim_id = requestAnimationFrame(repeat);
+                }
+            }
+
+            function car_down(enemy) {
+                let top = parseInt(enemy.css('top'));
+                if (top > container.height()) {
+                    top = -250;
+                    enemy.css('left', lanes[Math.floor(Math.random() * 3)]);
+                }
+                enemy.css('top', top + speed);
+            }
+
+            function stop_the_game() {
+                game_over = true;
+                cancelAnimationFrame(anim_id);
+                cancelAnimationFrame(move_left);
+                cancelAnimationFrame(move_right);
+                restart_div.fadeIn();
+            }
+
+            function collision($div1, $div2) {
+                const x1 = $div1.offset().left, y1 = $div1.offset().top;
+                const h1 = $div1.outerHeight(true), w1 = $div1.outerWidth(true);
+                const b1 = y1 + h1, r1 = x1 + w1;
+                const x2 = $div2.offset().left, y2 = $div2.offset().top;
+                const h2 = $div2.outerHeight(true), w2 = $div2.outerWidth(true);
+                const b2 = y2 + h2, r2 = x2 + w2;
+                if (b1 < y2 || y1 > b2 || r1 < x2 || x1 > r2) return false;
+                return true;
+            }
+
+            restart_div.find('.restart-btn').click(() => location.reload());
+
+            startCountdown();
+        });
+    </script>
+</body>
+</html>
